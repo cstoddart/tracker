@@ -4,9 +4,12 @@ import { ReactSortable } from 'react-sortablejs';
 
 import { getData, saveData } from './firestore';
 
+const isMobileDevice = window.innerWidth <= 1000;
+console.log('IS MOBILE DEVICE', isMobileDevice);
 const shadow = '1px 1px 3px rgba(0, 0, 0, 0.15)';
 const borderRadius = '4px';
-
+const metricHeight = isMobileDevice ? 10 : 20;
+const metricWidth = isMobileDevice ? 250 : 500;
 const colors = [
   '#7F8DFF',
   '#FF7F7F',
@@ -31,12 +34,12 @@ const StyledApp = styled.div`
 
 const Header = styled.div`
   display: flex;
-  justify-content: flex-end;
+  justify-content: ${isMobileDevice ? 'center' : 'flex-end'};
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  padding: 25px;
+  padding: ${isMobileDevice ? 15 : 25}px;
   background-color: rgba(255, 255, 255, 0.9);
   box-shadow: ${shadow};
   z-index: 1;
@@ -45,28 +48,33 @@ const Header = styled.div`
 const AddNewButton = styled.div`
   background-color: whitesmoke;
   display: inline-block;
-  padding-left: 5px;
-  padding-right: 2px; /* emoji is not horizontally centered */
+  padding: 5px;
   border-radius: ${borderRadius};
   box-shadow: ${shadow};
   cursor: pointer;
+  font-size: ${isMobileDevice && '12px'};
+  margin: ${isMobileDevice && '10px'};
+  line-height: 1;
 `;
 
 const Metrics = styled.div`
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  margin: ${isMobileDevice && '-10px'};
 `;
 
 const Metric = styled.div`
-  margin-right: 15px;
+  margin-right: ${isMobileDevice || '15px'};
+  margin: ${isMobileDevice && '10px'};
   display: flex;
   align-items: center;
   cursor: pointer;
 `;
 
 const MetricColor = styled.div`
-  height: 20px;
-  width: 20px;
+  height: ${isMobileDevice ? 15 : 20}px;
+  width: ${isMobileDevice ? 15 : 20}px;
   border-radius: ${borderRadius};
   background-color: ${({ color }) => color};
   position: relative;
@@ -119,13 +127,14 @@ const DataItem = styled.div`
   display: flex;
   align-items: center;
   margin-bottom: 25px;
+  flex-direction: ${isMobileDevice ? 'column' : 'row'};
 `;
 
 const DataItemLabel = styled.div`
-  font-size: 18px;
-  margin-right: 25px;
+  font-size: ${isMobileDevice ? 14 : 18}px;
+  margin-right: ${isMobileDevice || 25}px;
   position: relative;
-  padding: 10px 0 10px 5px;
+  padding: 10px 0 10px ${isMobileDevice ? 0 : '5px'};
   cursor: ${({ sortDisabled }) => sortDisabled ? 'initial' : 'grab'};
   user-select: none;
 `;
@@ -150,13 +159,13 @@ const DeleteDataItemButton = styled.div`
 const DataItemMetrics = styled.div`
   display: flex;
   flex-direction: column;
-  width: 500px;
+  width: ${metricWidth}px;
 `;
 
 const StyledDataItemMetric = styled.div`
   background-color: ${({ color }) => color};
-  width: ${({ width }) => width * 500}px;
-  height: 20px;
+  width: ${({ width }) => width * metricWidth}px;
+  height: ${metricHeight}px;
   border-radius: 10px;
   position: relative;
 
@@ -237,31 +246,31 @@ const DataItemMetric = ({ handleResize, ...rest }) => {
   const ref = useRef();
   const [isResizing, setIsResizing] = useState();
   const { left } = ref.current?.getBoundingClientRect() || {};
-  const resizeMin = left + 20;
-  const resizeMax = left + 500;
+  const resizeMin = left + metricHeight;
+  const resizeMax = left + metricWidth;
 
   const startResizing = () => setIsResizing(true);
   const stopResizing = () => {
     if (!isResizing) return;
     setIsResizing(false);
     const currentWidth = ref.current.clientWidth;
-    const resizeValue = currentWidth / 500;
+    const resizeValue = currentWidth / metricWidth;
     handleResize({ resizeValue });
   };
   
   const handleMouseMove = ({ clientX }) => {
     if (!isResizing) return;
     const width = clientX >= resizeMax
-      ? 500
+      ? metricWidth
       : clientX <= resizeMin
-        ? 20
+        ? metricHeight
         : clientX - left;
     ref.current.style.width = width;
   };
 
   return (
     <StyledDataItemMetric ref={ref} {...rest}>
-      <ResizeHandle onMouseDown={startResizing} onMouseUp={stopResizing} onMouseOut={stopResizing} onMouseMove={handleMouseMove} />
+      {isMobileDevice || <ResizeHandle onMouseDown={startResizing} onMouseUp={stopResizing} onMouseOut={stopResizing} onMouseMove={handleMouseMove} />}
     </StyledDataItemMetric>
   );
 };
@@ -391,6 +400,7 @@ export const App = () => {
   };
 
   const setSortedData = (sortedData) => {
+    if (isMobileDevice) return // disable until mobile interaction is better defined
     if (sortedGroupedData.length) return; // don't save sorts in the db
     updateGroupedData(groupedData.map((dataGroup) => ({
       ...dataGroup,
@@ -434,7 +444,7 @@ export const App = () => {
               {metrics.length && metrics.map((metric, index) => (
                 <Metric key={metric}>
                   <MetricColor color={colors[index % 3]}>
-                    <DeleteMetricButton onClick={() => deleteMetric(metric)}>❌</DeleteMetricButton>
+                    {isMobileDevice || <DeleteMetricButton onClick={() => deleteMetric(metric)}>❌</DeleteMetricButton>}
                   </MetricColor>
                   <MetricLabel onClick={() => sortByMetric(metric)}>
                     {metric}
@@ -461,14 +471,14 @@ export const App = () => {
                     list={dataGroup.data}
                     setList={setSortedData}
                     handle={DataItemLabel}
-                    disabled={!!sortedGroupedData.length}
+                    disabled={!!sortedGroupedData.length || isMobileDevice}
                     ref={node => node && setSortableListRef(node.sortable)}
                   >
                   {dataGroup.data.map((dataItem) => (
                     <DataItem key={dataItem.label}>
                       <DataItemLabel sortDisabled={!!sortedGroupedData.length}>
                         {dataItem.label}
-                        <DeleteDataItemButton onClick={() => deleteDataItem(dataItem)}>❌</DeleteDataItemButton>
+                        {isMobileDevice || <DeleteDataItemButton onClick={() => deleteDataItem(dataItem)}>❌</DeleteDataItemButton>}
                       </DataItemLabel>
                       <DataItemMetrics>
                         {dataItem.metrics.map((metric, index) => (
